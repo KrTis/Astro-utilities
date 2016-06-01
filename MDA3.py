@@ -11,6 +11,8 @@ import ttk
 import tkFileDialog
 import tkMessageBox
 from astroML_problematic import binned_statistic_2d, sigmaG, convert_to_stdev
+from json import dump as jdump
+from scipy.optimize import curve_fit
 ############################################################################
 
 class comp:
@@ -63,7 +65,9 @@ class App:
 		self.txtl=[StringVar() for j in range(self.Number_of_columns)]
 		self.txtu=[StringVar() for j in range(self.Number_of_columns)]
 		self.addv=StringVar()
+		self.plot_output=IntVar(value=0)
 
+  
 		self.menubar = Menu(master)
 		self.filemenu = Menu(self.menubar, tearoff=0)
 		self.filemenu.add_command(label="Open",command=self.openf)
@@ -193,6 +197,7 @@ class App:
 		Entry(self.plotframe,width=App.sizes,textvariable=self.histbins).grid(row=0,column=1)
 		Entry(self.plotframe,width=App.sizes,textvariable=self.histbins2d).grid(row=1,column=1)
 		Entry(self.plotframe,width=App.sizes,textvariable=self.label_size).grid(row=2,column=1)
+		Checkbutton(self.plotframe, text='Save plotted data', variable=self.plot_output).grid(row=3,column=0)
 	def show_colorbar(self):
 		fig=plt.figure()
 		ax=fig.add_subplot(111)
@@ -203,6 +208,15 @@ class App:
 		ax.get_xaxis().set_visible(False)
 		ax.get_yaxis().set_visible(False)
 		plt.show()
+	def indexed(self,label):
+                             out={}
+                             c=0
+                             for x in label.keys():
+                                 out[x]=c
+                                 c=c+1
+                             return out, c
+	def gauss(self,x,a,b,c):
+         return a*np.exp((x-b)**2/(2*c))
 	def start(self):
 		plt.ioff()
 		#prerequisites
@@ -253,13 +267,21 @@ class App:
 				j=j+1
 		X=X[0:i,:]
 		X=np.array([[X[k][l] for l in range(self.Number_of_columns)] for k in range(i) ])
+		if self.plot_output.get()==1:
+                    with open(str(self.output_folder.get()+'/data.txt'),'w') as output_file:
+                        np.savetxt(output_file,X)
+                    
+		
+                        
 		### Plotting histograms
 		fig=plt.figure(figsize=(20,15))
 		count=1
+		dimension=len(labele)
 		for ime, val in labele.items():
-				ax=fig.add_subplot(2,3,count)
+				ax=fig.add_subplot(2,int(np.ceil(dimension/2)),count)
 				ax.set_xlabel(ime, size=labelsiz)
-				ax.hist(X[:,val], bins=histbins, normed=False, histtype='stepfilled',color='blue',facecolor='blue')
+				ax.hist(X[:,val], histbins, normed=False, histtype='stepfilled',color='blue',facecolor='blue')
+				
 				ax.axvline(np.mean(X[:,val]), color='orange', linestyle='--')
 				ax.axvline(np.median(X[:,val]), color='green', linestyle='--')
 				ax.xaxis.major.formatter._useMathText = True
@@ -273,9 +295,10 @@ class App:
 		plt.savefig(self.output_folder.get()+'/Histograms.png')
 		plt.close()
 		comp.reportwin(self.output_folder.get(),starting_list,finishing_string,finishing_list)
+  
 		### Specific plots
 		for names0,vals0 in labele.items():
-				fig=plt.figure(figsize=(30,25))
+				fig=plt.figure(figsize=(30,30))
 				labele1=deepcopy(labele)
 
 				del labele1[names0]
@@ -284,39 +307,34 @@ class App:
 				ny=ceil(len(labele1)*(len(labele1)-1)/2/nx)
 				counts=1
 				cmap_multicolor = plt.cm.jet
-				def compute_sigma_level(trace1, trace2, nbins=20):
-					    """From a set of traces, bin by number of standard deviations"""
-					    L, xbins, ybins = np.histogram2d(trace1, trace2, nbins)
-					    L[L == 0] = 1E-16
-					    logL = np.log(L)
-
-					    shape = L.shape
-					    L = L.ravel()
-
-					    # obtain the indices to sort and unsort the flattened array
-					    i_sort = np.argsort(L)[::-1]
-					    i_unsort = np.argsort(i_sort)
-
-					    L_cumsum = L[i_sort].cumsum()
-					    L_cumsum /= L_cumsum[-1]
-					    
-					    xbins = 0.5 * (xbins[1:] + xbins[:-1])
-					    ybins = 0.5 * (ybins[1:] + ybins[:-1])
-
-					    return xbins, ybins, L_cumsum[i_unsort].reshape(shape)
+				indices1,dimension1=self.indexed(labele1)
+				
 				for names,vals in labele1.items():
 					del labele2[names]
+					indices2,dimension2=self.indexed(labele2)
 					for names1, vals1 in labele2.items():
+ 		                   
 						N0, xedges0, yedges0 = binned_statistic_2d(X[:,vals], X[:,vals1], X[:,labele[names0]], 'mean', bins=100)
-						ax=fig.add_subplot(ny,nx,counts)
+						ax = plt.subplot2grid((dimension1,dimension1-1),(indices1[names1],indices1[names]),colspan=1, rowspan=1)
 						im=ax.imshow(N0.T, origin='lower',extent=[xedges0[0], xedges0[-1], yedges0[0], yedges0[-1]], aspect='auto', interpolation='nearest', cmap=cmap_multicolor)
 						plt.xlim(xedges0[0], xedges0[-1])
 						plt.ylim(yedges0[0], yedges0[-1])
-						plt.xlabel(names, size=30)
-						plt.ylabel(names1, size=30)
-						ax.xaxis.major.formatter._useMathText = True
+						if     indices1[names1]<dimension1-1:
+           						ax.set_xticklabels('')
+						else:
+           						plt.xlabel(names, size=30)
+           						ax.xaxis.major.formatter._useMathText = True
+           						ax.ticklabel_format(style='sci', axis='x', scilimits=(-5,5))
+						if     indices1[names]>0:
+           						ax.set_yticklabels('')
+						else:
+           						plt.ylabel(names1, size=30)
+           						ax.yaxis.major.formatter._useMathText = True
+           						ax.ticklabel_format(style='sci', axis='y', scilimits=(-5,5))
+
+						
 						ax.yaxis.major.formatter._useMathText = True
-						ax.ticklabel_format(style='sci', axis='x', scilimits=(-5,5))
+						
                                   
 						H, xbins, ybins = np.histogram2d(X[:,vals], X[:,vals1],bins=100)
 
@@ -328,7 +346,7 @@ class App:
 						
 				
 				self.cmap_multicolor.set_bad('w', 1.)
-				fig.subplots_adjust(bottom=0.1)
+				fig.subplots_adjust(bottom=0.12,hspace=0,wspace=0)
 				cbar_ax = fig.add_axes([0.1, 0.05, 0.8, 0.025])
 				cb=fig.colorbar(im, cax=cbar_ax, format=r'$%.1f$',orientation='horizontal')
 				cb.set_label(str('$\\langle '+names0.replace('$','')+'\\rangle $'), size=labelsiz)
