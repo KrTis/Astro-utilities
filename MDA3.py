@@ -220,7 +220,7 @@ class App:
 		                  ax.get_xaxis().set_visible(False)
 		                  ax.get_yaxis().set_visible(False)
 		fig.subplots_adjust(hspace=1,wspace=0.1,top=None, bottom=None, left=None, right=None)
-		plt.show(fig)
+		fig.savefig('cmap_preview.png')
 	def indexed(self,label):
                              out={}
                              c=0
