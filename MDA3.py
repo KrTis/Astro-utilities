@@ -13,6 +13,7 @@ import tkMessageBox
 from astroML_problematic import binned_statistic_2d, sigmaG, convert_to_stdev
 from json import dump as jdump
 from scipy.optimize import curve_fit
+from scipy.stats import norm, moment
 ############################################################################
 
 class comp:
@@ -21,7 +22,7 @@ class comp:
 	    save_report=open(str(direktorij+'/report.tex'),'w')
 	    save_report.write(report)
 	    save_report.close()
-	    plt.figure(figsize=(4,3))
+	    plt.figure(figsize=(8,6))
 	    ax=plt.gca()
 	    plt.axis('off')
 	    plt.table(cellText=reportl, colLabels=namel,loc='center')
@@ -37,7 +38,7 @@ class App:
 	defaulthist2d=100
 	defaultlabel=30
 	labele0=OrderedDict([('$\\chi^2$', 1), ('$T_{per}$', 3), ('$e$', 4), ('$\\omega$', 5), ('$K_1$', 6), ('$K_2$', 7)])
-	cmap_names=['Accent', 'Accent_r', 'Blues', 'Blues_r', 'BrBG', 'BrBG_r', 'BuGn', 'BuGn_r', 'BuPu', 'BuPu_r', 'CMRmap',
+	cmap_names=sorted(['Accent', 'Accent_r', 'Blues', 'Blues_r', 'BrBG', 'BrBG_r', 'BuGn', 'BuGn_r', 'BuPu', 'BuPu_r', 'CMRmap',
 		 'CMRmap_r', 'Dark2', 'Dark2_r', 'GnBu', 'GnBu_r', 'Greens', 'Greens_r', 'Greys', 'Greys_r', 'OrRd', 'OrRd_r',
 		 'Oranges', 'Oranges_r', 'PRGn', 'PRGn_r', 'Paired', 'Paired_r', 'Pastel1', 'Pastel1_r', 'Pastel2', 'Pastel2_r', 
 		'PiYG', 'PiYG_r', 'PuBu', 'PuBuGn', 'PuBuGn_r', 'PuBu_r', 'PuOr', 'PuOr_r', 'PuRd', 'PuRd_r', 'Purples', 'Purples_r',
@@ -50,7 +51,7 @@ class App:
 		'gist_yarg', 'gist_yarg_r', 'gnuplot', 'gnuplot2', 'gnuplot2_r', 'gnuplot_r', 'gray', 'gray_r', 'hot', 'hot_r', 'hsv', 
 		'hsv_r', 'jet', 'jet_r', 'nipy_spectral', 'nipy_spectral_r', 'ocean', 'ocean_r', 'pink', 'pink_r', 'prism', 'prism_r', 
 		'rainbow', 'rainbow_r', 'seismic', 'seismic_r', 'spectral', 'spectral_r', 'spring', 'spring_r', 'summer', 'summer_r', 
-		'terrain', 'terrain_r', 'winter', 'winter_r']
+		'terrain', 'terrain_r', 'winter', 'winter_r'],key=str.lower)
 	
 	def __init__(self,master):
 		self.Number_of_rows=0
@@ -171,14 +172,14 @@ class App:
 	def clickAbout(self):
 	    toplevel=Toplevel(master)
 	    toplevel.wm_title("About")
-	    ABOUT_TEXT="Multi Dimensional Analyzer 3.0. (17/5/2016)\n Made using Numpy, PyPlot and AstroML. \n Please report bugs to kresimir.tisanic@gmail.com"
+	    ABOUT_TEXT="Multi Dimensional Analyzer (2/6/2016)\n Made using Numpy, PyPlot and AstroML. \n Please report bugs to kresimir.tisanic@gmail.com"
 	    about = Label(toplevel, text=ABOUT_TEXT, height=0, width=50)
 	    about.pack()
 	
 	def Help(self):
 	    toplevel=Toplevel(master)
 	    toplevel.wm_title("How To Use?")
-	    ABOUT_TEXT="MDA 2.0 Takes an ASCII file as input.\n Columns should be separated by tabs or spaces. \n Upon hitting Run, it computes the statistic \n on parameters defined as columns."
+	    ABOUT_TEXT="MDA Takes an ASCII file as input.\n Columns should be separated by tabs or spaces. \n Upon hitting Run, it computes the statistic \n on parameters defined as columns."
 	    about = Label(toplevel, text=ABOUT_TEXT, height=0, width=50)
 	    about.pack()
 	def properties_window(self):
@@ -199,15 +200,27 @@ class App:
 		Entry(self.plotframe,width=App.sizes,textvariable=self.label_size).grid(row=2,column=1)
 		Checkbutton(self.plotframe, text='Save plotted data', variable=self.plot_output).grid(row=3,column=0)
 	def show_colorbar(self):
-		fig=plt.figure()
-		ax=fig.add_subplot(111)
+     
+		fig=plt.figure(figsize=(30,30))
+
+		sizep=int(ceil(np.sqrt(len(App.cmap_names))))
+		ax = plt.subplot2grid((sizep, sizep),(0,0),colspan=sizep, rowspan=1)
+
 		gradient = np.linspace(0, 1, 256)
 		gradient = np.vstack((gradient, gradient))
-		ax.set_title(self.chosen_cmap.get())
+		ax.set_title('Chosen colormap: '+self.chosen_cmap.get())
 		ax.imshow(gradient, aspect='auto', cmap=plt.get_cmap(self.chosen_cmap.get()))
 		ax.get_xaxis().set_visible(False)
 		ax.get_yaxis().set_visible(False)
-		plt.show()
+
+		for x in range(1,len(App.cmap_names)+1):
+		                  ax=fig.add_subplot(1+sizep, sizep,x+sizep)
+		                  ax.set_title(App.cmap_names[x-1])
+		                  ax.imshow(gradient, aspect='auto', cmap=plt.get_cmap(App.cmap_names[x-1]))
+		                  ax.get_xaxis().set_visible(False)
+		                  ax.get_yaxis().set_visible(False)
+		fig.subplots_adjust(hspace=1,wspace=0.1,top=None, bottom=None, left=None, right=None)
+		plt.show(fig)
 	def indexed(self,label):
                              out={}
                              c=0
@@ -225,8 +238,8 @@ class App:
 		if not os.path.exists(self.output_folder.get()):
 	   		 os.makedirs(self.output_folder.get())
 		### definitions
-		finishing_string='Name & Mean & Median\\\\ \n'
-		starting_list=['Name','Mean','Median']
+		finishing_string='Name & Mean & Median & $\Sigma" & "K"\\\\ \n'
+		starting_list=['Name','Mean','Median','Skewness', 'Kurtosis']
 		finishing_list=[]
 		histbins=int(self.histbins.get())
 		histbins2d=int(self.histbins2d.get())
@@ -241,6 +254,7 @@ class App:
 			addit=int(self.addv.get())
 		except ValueError:
 			addit=0
+
 		self.cmap_multicolor=plt.get_cmap(self.chosen_cmap.get())
 		### reading data
 		self.f.seek(0)
@@ -274,22 +288,34 @@ class App:
 		
                         
 		### Plotting histograms
-		fig=plt.figure(figsize=(20,15))
+		fig=plt.figure(figsize=(25,19))
 		count=1
 		dimension=len(labele)
 		for ime, val in labele.items():
 				ax=fig.add_subplot(2,int(np.ceil(dimension/2)),count)
 				ax.set_xlabel(ime, size=labelsiz)
-				ax.hist(X[:,val], histbins, normed=False, histtype='stepfilled',color='blue',facecolor='blue')
-				
+				ax.hist(X[:,val], histbins, normed=True, histtype='stepfilled',color='blue',facecolor='blue')
+				param = norm.fit(X[:,val])
+				moments= [moment(X[:,val], moment=i) for i in range(2,5)]
+				sigmam=moments[0]**(0.5)
+				skewness=moments[1]/moments[0]**(3/2.)
+				kurtosis=moments[2]/moments[0]**(2.)-3.
+				x=np.linspace(min(X[:,val]),max(X[:,val]),100)
+				pdf_fitted = norm.pdf(x, *param)
+				ax.plot(x, pdf_fitted, color='r')
 				ax.axvline(np.mean(X[:,val]), color='orange', linestyle='--')
 				ax.axvline(np.median(X[:,val]), color='green', linestyle='--')
 				ax.xaxis.major.formatter._useMathText = True
 				ax.ticklabel_format(style='sci', axis='x', scilimits=(-5,5))
-				text='Mean and median:\n'+str("mean$\\rightarrow$ $ {:.2uL}$\n".format(ufloat(np.mean(X[:,val]),np.std(X[:,val])))+"median$\\rightarrow$ $ {:.2uL}$".format(ufloat(np.median(X[:,val]),sigmaG(X[:,val]) ) ))
-				finishing_string=finishing_string+ime+" & "+"$ {:.2uL}$".format(ufloat(np.mean(X[:,val]),np.std(X[:,val])))+" & $ {:.2uL}$".format(ufloat(np.median(X[:,val]),sigmaG(X[:,val])))+"\\\\ \n"			
-				finishing_list.append([ime,"$ {:.2uL}$".format(ufloat(np.mean(X[:,val]),np.std(X[:,val])))," $ {:.2uL}$".format(ufloat(np.median(X[:,val]),sigmaG(X[:,val])))])
-				ax.text(.65,.9,text,transform = ax.transAxes)
+				text='Mean and median:\n'+\
+    "mean$\\rightarrow$ $ {:.2uL}$\n".format(ufloat(np.mean(X[:,val]),np.std(X[:,val])))+\
+    "median$\\rightarrow$ $ {:.2uL}$".format(ufloat(np.median(X[:,val]),sigmaG(X[:,val])))+"\n"+\
+    'Gaussian fit\n'+"peak $\\rightarrow\, {:.2uL}$".format(ufloat(param[0],param[1]))+"\n"+\
+    "Moments:\n"+"$\Sigma=$ {:0.1f}\n".format(skewness)+\
+    "$K=$ {:0.1f}".format(kurtosis)
+				finishing_string=finishing_string+ime+" & "+"$ {:.2uL}$".format(ufloat(np.mean(X[:,val]),np.std(X[:,val])))+" & $ {:.2uL}$".format(ufloat(np.median(X[:,val]),sigmaG(X[:,val])))+"& $ {:0.1f}$".format(skewness)+"&"+"$ {:0.1f}$".format(kurtosis)+"\\\\ \n"			
+				finishing_list.append([ime,"$ {:.2uL}$".format(ufloat(np.mean(X[:,val]),np.std(X[:,val])))," $ {:.2uL}$".format(ufloat(np.median(X[:,val]),sigmaG(X[:,val]))),"$ {:0.1f}$".format(skewness),"$ {:0.1f}$".format(kurtosis)])
+				ax.text(.05,.8,text,transform = ax.transAxes,size='small')
 				count=count+1
 		plt.tight_layout()
 		plt.savefig(self.output_folder.get()+'/Histograms.png')
@@ -303,10 +329,8 @@ class App:
 
 				del labele1[names0]
 				labele2=deepcopy(labele1)
-				nx=ceil(np.sqrt(len(labele1)*(len(labele1)-1)/2))
-				ny=ceil(len(labele1)*(len(labele1)-1)/2/nx)
+
 				counts=1
-				cmap_multicolor = plt.cm.jet
 				indices1,dimension1=self.indexed(labele1)
 				
 				for names,vals in labele1.items():
@@ -314,15 +338,15 @@ class App:
 					indices2,dimension2=self.indexed(labele2)
 					for names1, vals1 in labele2.items():
  		                   
-						N0, xedges0, yedges0 = binned_statistic_2d(X[:,vals], X[:,vals1], X[:,labele[names0]], 'mean', bins=100)
+						N0, xedges0, yedges0 = binned_statistic_2d(X[:,vals], X[:,vals1], X[:,labele[names0]], 'mean', bins=histbins2d)
 						ax = plt.subplot2grid((dimension1,dimension1-1),(indices1[names1],indices1[names]),colspan=1, rowspan=1)
-						im=ax.imshow(N0.T, origin='lower',extent=[xedges0[0], xedges0[-1], yedges0[0], yedges0[-1]], aspect='auto', interpolation='nearest', cmap=cmap_multicolor)
+						im=ax.imshow(N0.T, origin='lower',extent=[xedges0[0], xedges0[-1], yedges0[0], yedges0[-1]], aspect='auto', interpolation='nearest', cmap=self.cmap_multicolor)
 						plt.xlim(xedges0[0], xedges0[-1])
 						plt.ylim(yedges0[0], yedges0[-1])
 						if     indices1[names1]<dimension1-1:
            						ax.set_xticklabels('')
 						else:
-           						plt.xlabel(names, size=30)
+           						plt.xlabel(names, size=labelsiz)
            						ax.xaxis.major.formatter._useMathText = True
            						ax.ticklabel_format(style='sci', axis='x', scilimits=(-5,5))
 						if     indices1[names]>0:
