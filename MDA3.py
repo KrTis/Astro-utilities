@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from math import ceil
 import numpy as np
@@ -14,6 +16,7 @@ from astroML_problematic import binned_statistic_2d, sigmaG, convert_to_stdev
 from json import dump as jdump
 from scipy.optimize import curve_fit
 from scipy.stats import norm, moment
+import threading
 ############################################################################
 
 class comp:
@@ -164,7 +167,7 @@ class App:
 		Checkbutton(self.plotframe, text='Save plotted data', variable=self.plot_output).grid(row=6,column=0)
 		Checkbutton(self.plotframe, text='Plot 2D histogram points', variable=self.histbool).grid(row=7,column=0)
 		
-
+		Button(self.plotframe,text='Run',command=self.start).grid(row=9, column=0)
 	def open_limits(self):	
 		save_name=tkFileDialog.askopenfilename(parent=master,title='Open limits file')
 		filesave=open(save_name,'r')
@@ -244,12 +247,15 @@ class App:
                              return out, c
 	def gauss(self,x,a,b,c):
          return a*np.exp((x-b)**2/(2*c))
+	#def start(self):
+      #            thr=threading.Thread(target=lambda: self.start1)
+															
 	def start(self):
 		self.progframe=Frame(master,padx=5)
 		self.progframe.grid(row=2,column=0)
-		self.progressbar = ttk.Progressbar(self.progframe, mode='determinate',length=200)
-		self.progressbar.grid(column=1, row=0,columnspan=2,padx=5)
-		self.progressbar.start()
+		#self.progressbar = ttk.Progressbar(self.progframe, mode='determinate',length=200)
+		#self.progressbar.grid(column=1, row=0,columnspan=2,padx=5)
+		#self.progressbar.start()
 		plt.ioff()
 		#prerequisites
 		if not self.f:
@@ -286,8 +292,8 @@ class App:
 					line1=line0.split()
 					passing=1
 					for dicts, vals in labele.items():
-						self.progressbar.step(10)
-						self.progressbar.update_idletasks()
+						#self.progressbar.step(10)
+						#self.progressbar.update_idletasks()
 						if dicts in labelel:
 							if(labelel[dicts]>float(line1[vals])):
 								passing=0
@@ -305,8 +311,8 @@ class App:
 		if self.plot_output.get()==1:
                     with open(str(self.output_folder.get()+'/data.txt'),'w') as output_file:
                         np.savetxt(output_file,X)
-		self.progressbar.step(10)
-		self.progressbar.update_idletasks()
+		#self.progressbar.step(10)
+		#self.progressbar.update_idletasks()
 		
                         
 		### Plotting histograms
@@ -314,8 +320,8 @@ class App:
 		count=1
 		dimension=len(labele)
 		for ime, val in labele.items():
-				self.progressbar.step(10)
-				self.progressbar.update_idletasks()
+				#self.progressbar.step(10)
+				#self.progressbar.update_idletasks()
 				ax=fig.add_subplot(2,int(np.ceil(dimension/2)),count)
 				ax.set_xlabel(ime, size=labelsiz)
 				ax.hist(X[:,val], histbins, normed=True, histtype='stepfilled',color='blue',facecolor='blue')
@@ -361,8 +367,8 @@ class App:
 					del labele2[names]
 					indices2,dimension2=self.indexed(labele2)
 					for names1, vals1 in labele2.items():
-						self.progressbar.step(10)
-						self.progressbar.update_idletasks()
+						#self.progressbar.step(10)
+						#self.progressbar.update_idletasks()
 						N0, xedges0, yedges0 = binned_statistic_2d(X[:,vals], X[:,vals1], X[:,labele[names0]], 'mean', bins=int(self.histbins2d.get()))
 						ax = plt.subplot2grid((dimension1,dimension1-1),(indices1[names1],indices1[names]),colspan=1, rowspan=1)
 						if self.histbool.get()==1:
@@ -404,10 +410,10 @@ class App:
 				
 				plt.savefig(self.output_folder.get()+'/'+''.join([i for i in names0 if (i.isalpha() or i.isdigit())])+'.png',bbox_inches='tight')
 				plt.close()
-		self.progressbar.step(10)
-		self.progressbar.update_idletasks()
-		self.progressbar.stop()
-		self.progressbar.grid_remove()
+		#self.progressbar.step(10)
+		#self.progressbar.update_idletasks()
+		#self.progressbar.stop()
+		#self.progressbar.grid_remove()
 
 
 master = Tk()
